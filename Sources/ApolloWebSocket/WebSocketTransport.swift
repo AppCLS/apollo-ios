@@ -217,15 +217,24 @@ public class WebSocketTransport {
     print("WebSocketTransport::unprocessed event \(data)")
   }
 
-  public func initServer() {
-    processingQueue.async {
-      self.acked = false
+    public func initServer() {
+      let block = {
+          self.acked = false
 
-      if let str = OperationMessage(payload: self.connectingPayload, type: .connectionInit).rawMessage {
-        self.write(str, force:true)
+          if let str = OperationMessage(payload: self.connectingPayload, type: .connectionInit).rawMessage {
+            self.write(str, force:true)
+          }
+      }
+      
+      if let currentQueueLabel = String(validatingUTF8: __dispatch_queue_get_label(nil)), currentQueueLabel == self.processingQueue.label {
+          block()
+          return
+      }
+      
+      self.processingQueue.async {
+        block()
       }
     }
-  }
 
   public func closeConnection() {
     self.reconnect.mutate { $0 = false }
